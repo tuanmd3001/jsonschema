@@ -83,7 +83,7 @@ def additionalItems(validator, aI, instance, schema):
 
 
 def minimum(validator, minimum, instance, schema):
-    if not validator.is_type(instance, "number"):
+    if not validator.is_type(instance, "number") or not validator.is_type(minimum, "number"):
         return
 
     if schema.get("exclusiveMinimum", False):
@@ -147,6 +147,80 @@ def uniqueItems(validator, uI, instance, schema):
         not _utils.uniq(instance)
     ):
         yield ValidationError("%r has non-unique elements" % (instance,))
+
+
+def compare(big, small):
+    error = False
+    if len(big) < len(small):
+        error = True
+    count_big = count_small = 0
+    for k_1, item_1 in enumerate(big):
+        if error is True:
+            break
+        count_big += item_1["quantity"]
+        for k_2, item_2 in enumerate(small):
+            if item_1["name"].strip() == item_2['name'].strip() and item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
+                small.pop(k_2)
+                count_small += item_2["quantity"]
+                if item_1["quantity"] < item_2["quantity"]:
+                    error = True
+                    break
+    if count_big <= count_small:
+        error = True
+    if len(small) > 0:
+        error = True
+    return error
+
+
+def compareItems(validator, uI, instance, schema):
+    error = False
+
+    items_1 = list(uI['items_1'])
+    items_2 = list(uI['items_2'])
+
+    if uI['operator'] == '>':
+        error = compare(items_1, items_2)
+
+    elif uI['operator'] == '<':
+        error = compare(items_2, items_1)
+    else:
+        if len(items_1) != len(items_2):
+            error = True
+        count_items_1 = count_items_2 = 0
+        for k_1, item_1 in enumerate(items_1):
+            if error is True:
+                break
+            count_items_1 += item_1["quantity"]
+            for k_2, item_2 in enumerate(items_2):
+                if item_1["name"].strip() == item_2['name'].strip() and item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
+                    items_2.pop(k_2)
+                    count_items_2 += item_2["quantity"]
+                    if item_1["quantity"] != item_2["quantity"]:
+                        error = True
+                    break
+        if count_items_1 != count_items_2:
+            error = True
+        if len(items_2) > 0:
+            error = True
+    if error is True:
+        yield ValidationError("Items compare failed")
+
+def compareAddress(validator, uI, instance, schema):
+    items_1 = dict(uI['items_1'])
+    items_2 = dict(uI['items_2'])
+
+    if items_1['id'] != items_2['id'] or items_1['type'] != items_2['type'] or items_1['name'] != items_2['name'] or items_1['phone'] != items_2['phone'] or items_1['fullAddress'] != items_2['fullAddress'] or items_1['addressCode'] != items_2['addressCode']:
+        yield ValidationError("Address compare failed")
+
+def totalPrice(validator, uI, instance, schema):
+    items = uI['items']
+    cod = uI['cod']
+    total = 0
+    for item in items:
+        if validator.is_type(item['price'], "number") and validator.is_type(item['quantity'], "number"):
+            total += item['price']*item['quantity']
+    if cod < total:
+        yield ValidationError("COD invalid")
 
 
 def pattern(validator, patrn, instance, schema):
@@ -342,11 +416,14 @@ def oneOf_draft4(validator, oneOf, instance, schema):
         if not errs:
             first_valid = subschema
             break
-        all_errors.extend(errs)
+        # all_errors.extend(errs)
+        for err in errs:
+            all_errors.append("%s: %s" % (".".join(err.path), err.message))
     else:
         yield ValidationError(
-            "%r is not valid under any of the given schemas" % (instance,),
-            context=all_errors,
+            # "%r is not valid under any of the given schemas" % (instance,),
+            # context=all_errors,
+            '; '.join(all_errors)
         )
 
     more_valid = [s for i, s in subschemas if validator.is_valid(instance, s)]
@@ -364,11 +441,14 @@ def anyOf_draft4(validator, anyOf, instance, schema):
         errs = list(validator.descend(instance, subschema, schema_path=index))
         if not errs:
             break
-        all_errors.extend(errs)
+        # all_errors.extend(errs)
+        for err in errs:
+            all_errors.append("%s: %s" % (".".join(err.path), err.message))
     else:
         yield ValidationError(
-            "%r is not valid under any of the given schemas" % (instance,),
-            context=all_errors,
+            # "%r is not valid under any of the given schemas" % (instance,),
+            # context=all_errors,
+            '; '.join(all_errors)
         )
 
 

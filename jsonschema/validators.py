@@ -3,6 +3,8 @@ from __future__ import division
 import contextlib
 import json
 import numbers
+from jsonpointer import resolve_pointer
+import time
 
 try:
     import requests
@@ -14,13 +16,8 @@ from jsonschema.compat import (
     Sequence, urljoin, urlsplit, urldefrag, unquote, urlopen,
     str_types, int_types, iteritems, lru_cache,
 )
+from jsonschema.exceptions import ErrorTree  # Backwards compat  # noqa: F401
 from jsonschema.exceptions import RefResolutionError, SchemaError, UnknownType
-
-# Sigh. https://gitlab.com/pycqa/flake8/issues/280
-#       https://github.com/pyga/ebb-lint/issues/7
-# Imported for backwards compatibility.
-from jsonschema.exceptions import ErrorTree
-ErrorTree
 
 
 _unset = _utils.Unset()
@@ -56,7 +53,7 @@ def validates(version):
     return _validates
 
 
-def create(meta_schema, validators=(), version=None, default_types=None):
+def create(meta_schema, validators=(), version=None, default_types=None):  # noqa: C901, E501
     if default_types is None:
         default_types = {
             u"array": list, u"boolean": bool, u"integer": int_types,
@@ -90,6 +87,10 @@ def create(meta_schema, validators=(), version=None, default_types=None):
         def iter_errors(self, instance, _schema=None):
             if _schema is None:
                 _schema = self.schema
+                # =============== tuanmd modified
+                self.instance_data = instance
+                # =======================
+
 
             scope = _schema.get(u"id")
             if scope:
@@ -105,6 +106,29 @@ def create(meta_schema, validators=(), version=None, default_types=None):
                     validator = self.VALIDATORS.get(k)
                     if validator is None:
                         continue
+
+                    # =============== tuanmd modified
+                    if isinstance(v, dict) and "$data" in v:
+                        v = resolve_pointer(self.instance_data, v['$data'])
+                    elif isinstance(v, list) and k == 'enum':
+                        enums_choice = []
+                        for sub_val in v:
+                            if isinstance(sub_val, dict) and "$data" in sub_val:
+                                enums_choice.append(resolve_pointer(self.instance_data, sub_val['$data']))
+                            else:
+                                enums_choice.append(sub_val)
+                        v = enums_choice
+                    elif v == '$CURRENT_TIMESTAMPS':
+                        v = time.time()
+                    elif k in ['compareItems', 'compareAddress']:
+                        if isinstance(v['items_1'], dict) and "$data" in v['items_1']:
+                            v['items_1'] = resolve_pointer(self.instance_data, v['items_1']['$data'])
+                        if isinstance(v['items_2'], dict) and "$data" in v['items_2']:
+                            v['items_2'] = resolve_pointer(self.instance_data, v['items_2']['$data'])
+                    elif k == 'totalPrice':
+                        v['items'] = resolve_pointer(self.instance_data, v['items']['$data'])
+                        v['cod'] = resolve_pointer(self.instance_data, v['cod']['$data'])
+                    # =======================
 
                     errors = validator(self, v, instance, _schema) or ()
                     for error in errors:
@@ -229,6 +253,9 @@ Draft4Validator = create(
         u"required": _validators.required_draft4,
         u"type": _validators.type_draft4,
         u"uniqueItems": _validators.uniqueItems,
+        u"compareItems": _validators.compareItems,
+        u"compareAddress": _validators.compareAddress,
+        u"totalPrice": _validators.totalPrice,
     },
     version="draft4",
 )
