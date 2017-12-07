@@ -171,12 +171,33 @@ def compare(big, small):
         error = True
     return error
 
+def validate_item_field(items):
+    required = [
+              "productId",
+              "sku",
+              "price",
+              "quantity",
+              "name"
+            ]
+    errors = []
+    for item in items:
+        for k in required:
+            if k not in item:
+                errors.append('%s is a required property' % k)
+    return errors, items
+
 
 def compareItems(validator, uI, instance, schema):
     error = False
 
-    items_1 = list(uI['items_1'])
-    items_2 = list(uI['items_2'])
+    errs_1, items_1 = validate_item_field(list(uI['items_1']))
+    errs_2, items_2 = validate_item_field(list(uI['items_2']))
+    if errs_1:
+        yield ValidationError(';'.join(errs_1))
+        return
+    if errs_2:
+        yield ValidationError(';'.join(errs_2))
+        return
 
     if uI['operator'] == '>':
         error = compare(items_1, items_2)
