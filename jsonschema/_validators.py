@@ -173,7 +173,6 @@ def compare(big, small):
 
 def validate_item_field(items):
     required = [
-              "productId",
               "sku",
               "price",
               "quantity",
