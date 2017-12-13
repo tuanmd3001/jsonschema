@@ -148,6 +148,7 @@ def uniqueItems(validator, uI, instance, schema):
     ):
         yield ValidationError("%r has non-unique elements" % (instance,))
 
+# ------------------------------------
 
 def compare(big, small):
     error = False
@@ -234,13 +235,53 @@ def compareAddress(validator, uI, instance, schema):
 
 def totalPrice(validator, uI, instance, schema):
     items = uI['items']
-    cod = uI['cod']
-    total = 0
+    total = uI['total']
+    items_total = 0
     for item in items:
         if validator.is_type(item['price'], "number") and validator.is_type(item['quantity'], "number"):
             total += item['price']*item['quantity']
-    if cod < total:
-        yield ValidationError("COD invalid")
+    if total < items_total:
+        yield ValidationError(uI['err_msg'].encode('ascii','ignore') if 'err_msg' in uI else 'Compare total price failed')
+
+
+def validatePaidAmount(validator, uI, instance, schema):
+    result = False
+    if 'payments' in uI and 'paidAmount' in uI:
+        payments = uI['payments']
+        paidAmount = uI['paidAmount']
+        if check_int_or_float(paidAmount):
+            transaction_amount = 0
+            for payment in payments:
+                if 'transactionData' in payment and 'amount' in payment['transactionData'] and check_int_or_float(payment['transactionData']['amount']):
+                    transaction_amount += float(payment['transactionData']['amount'])
+            if float(paidAmount) != transaction_amount:
+                yield ValidationError(uI['err_msg'].encode('ascii','ignore') if 'err_msg' in uI else 'Validate PaidAmount failed')
+
+def calculateAndCompare(validator, uI, instance, schema):
+    if 'operation' in uI and uI['operation']:
+        calcResult = None
+        if 'compareValue' in uI:
+            compareValue = uI['compareValue']
+        else:
+            compareValue = instance
+        if check_int_or_float(compareValue):
+            try:
+                calcResult = eval(uI['operation'])
+                if float(compareValue) != float(calcResult):
+                    yield ValidationError(uI['err_msg'].encode('ascii','ignore') if 'err_msg' in uI else 'calculateAndCompare failed')
+            except:
+                pass
+
+def check_int_or_float(number):
+    if isinstance(number, int) or isinstance(number, float):
+        return True
+    else:
+        try:
+            number = float(number)
+        except ValueError:
+            return False
+    return False
+# ----------------------------------------
 
 
 def pattern(validator, patrn, instance, schema):
@@ -436,14 +477,11 @@ def oneOf_draft4(validator, oneOf, instance, schema):
         if not errs:
             first_valid = subschema
             break
-        # all_errors.extend(errs)
         for err in errs:
             all_errors.append("%s: %s" % (".".join(err.path), err.message))
     else:
         yield ValidationError(
-            # "%r is not valid under any of the given schemas" % (instance,),
-            # context=all_errors,
-            '; '.join(all_errors)
+            schema['err_msg'] if 'err_msg' in schema else 'oneOf clause invalid: ' + '; '.join(all_errors)
         )
 
     more_valid = [s for i, s in subschemas if validator.is_valid(instance, s)]
@@ -451,7 +489,7 @@ def oneOf_draft4(validator, oneOf, instance, schema):
         more_valid.append(first_valid)
         reprs = ", ".join(repr(schema) for schema in more_valid)
         yield ValidationError(
-            "%r is valid under each of %s" % (instance, reprs)
+            s['err_msg'] if 'err_msg' in s else 'oneOf clause invalid: ' + reprs
         )
 
 
@@ -461,19 +499,14 @@ def anyOf_draft4(validator, anyOf, instance, schema):
         errs = list(validator.descend(instance, subschema, schema_path=index))
         if not errs:
             break
-        # all_errors.extend(errs)
         for err in errs:
             all_errors.append("%s: %s" % (".".join(err.path), err.message))
     else:
         yield ValidationError(
-            # "%r is not valid under any of the given schemas" % (instance,),
-            # context=all_errors,
-            '; '.join(all_errors)
+            schema['err_msg'] if 'err_msg' in schema else 'anyOf clause invalid: ' + '; '.join(all_errors)
         )
 
 
 def not_draft4(validator, not_schema, instance, schema):
     if validator.is_valid(instance, not_schema):
-        yield ValidationError(
-            "%r is not allowed for %r" % (not_schema, instance)
-        )
+        yield ValidationError(not_schema['err_msg'].encode('ascii','ignore') if 'err_msg' in not_schema else "%r is not allowed for %r" % (not_schema, instance))

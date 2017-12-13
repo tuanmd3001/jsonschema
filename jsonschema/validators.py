@@ -108,13 +108,19 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
                         continue
 
                     # =============== tuanmd modified
+
                     if isinstance(v, dict) and "$data" in v:
                         v = resolve_pointer(self.instance_data, v['$data'])
+                    elif isinstance(v, dict) and "$p_data" in v:
+                        v = resolve_pointer(instance, v['$p_data'])
                     elif isinstance(v, list) and k == 'enum':
                         enums_choice = []
                         for sub_val in v:
-                            if isinstance(sub_val, dict) and "$data" in sub_val:
-                                enums_choice.append(resolve_pointer(self.instance_data, sub_val['$data']))
+                            if isinstance(sub_val, dict) and ("$data" in sub_val or '$p_data' in sub_val):
+                                if "$data" in sub_val:
+                                    enums_choice.append(resolve_pointer(self.instance_data, sub_val['$data']))
+                                elif "$p_data" in sub_val:
+                                    enums_choice.append(resolve_pointer(instance, sub_val['$p_data']))
                             else:
                                 enums_choice.append(sub_val)
                         v = enums_choice
@@ -125,9 +131,43 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
                             v['items_1'] = resolve_pointer(self.instance_data, v['items_1']['$data'])
                         if isinstance(v['items_2'], dict) and "$data" in v['items_2']:
                             v['items_2'] = resolve_pointer(self.instance_data, v['items_2']['$data'])
-                    elif k == 'totalPrice':
+                    elif k == 'calculateAndCompare':
+                        # calcItems = []
+                        # for item in v['items']:
+                        #     if isinstance(item, dict) and ('$data' in item or '$p_data' in item):
+                        #         if '$data' in item:
+                        #             calcItems.append(resolve_pointer(self.instance_data, item['$data']))
+                        #         elif '$p_data' in item:
+                        #             calcItems.append(resolve_pointer(instance, item['$p_data']))
+                        #     else:
+                        #         calcItems.append(item)
+                        # v['items'] = calcItems
+                        operation = ''
+                        for item in v['operation']:
+                            if isinstance(item, dict) and ('$data' in item or '$p_data' in item):
+                                if '$data' in item:
+                                    operation += str(resolve_pointer(self.instance_data, item['$data']))
+                                elif '$p_data' in item:
+                                    operation += str(resolve_pointer(instance, item['$p_data']))
+                            else:
+                                operation += str(item)
+                        v['operation'] = operation
+                        if 'compareValue' in v and isinstance(v['compareValue'], dict) and ('$data' in v['compareValue'] or '$p_data' in v['compareValue']):
+                            if '$data' in v['compareValue']:
+                                v['compareValue'] = resolve_pointer(self.instance_data, v['compareValue']['$data'])
+                            elif '$p_data' in v['compareValue']:
+                                v['compareValue'] = resolve_pointer(instance, v['compareValue']['$p_data'])
+                    elif k == 'totalItemsPrice':
                         v['items'] = resolve_pointer(self.instance_data, v['items']['$data'])
-                        v['cod'] = resolve_pointer(self.instance_data, v['cod']['$data'])
+                        if 'total' in v and ('$data' in v['total'] or '$p_data' in v['total']):
+                            if '$data' in v['total']:
+                                v['total'] = resolve_pointer(self.instance_data, v['total']['$data'])
+                            elif '$p_data' in v['total']:
+                                v['total'] = resolve_pointer(instance, v['total']['$p_data'])
+                    elif k == 'validatePaidAmount':
+                        v['paidAmount'] = resolve_pointer(self.instance_data, v['paidAmount']['$data'])
+                        v['payments'] = resolve_pointer(self.instance_data, v['payments']['$data'])
+
                     # =======================
 
                     errors = validator(self, v, instance, _schema) or ()
@@ -176,6 +216,10 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
         def is_valid(self, instance, _schema=None):
             error = next(self.iter_errors(instance, _schema), None)
             return error is None
+
+        def is_valid_with_errors(self, instance, _schema=None):
+            error = next(self.iter_errors(instance, _schema), None)
+            return error
 
     if version is not None:
         Validator = validates(version)(Validator)
@@ -256,6 +300,8 @@ Draft4Validator = create(
         u"compareItems": _validators.compareItems,
         u"compareAddress": _validators.compareAddress,
         u"totalPrice": _validators.totalPrice,
+        u"validatePaidAmount": _validators.validatePaidAmount,
+        u"calculateAndCompare": _validators.calculateAndCompare,
     },
     version="draft4",
 )
