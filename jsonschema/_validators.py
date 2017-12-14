@@ -156,12 +156,13 @@ def uniqueLoItems(validator, uI, instance, schema):
         yield ValidationError("Duplicate items")
 
 def is_unique_item(items):
-    uni_by_id = uni_by_name = {}
+    uni_by_id = {}
+    uni_by_name = {}
     for item in items:
         if 'sku' in item and 'name' in item:
             uni_by_id[item['sku']] = item
-            uni_by_id[item['name']] = item
-    if len(items) != len(uni_by_id.values()) or len(items) != len(uni_by_name.values()):
+            uni_by_name[item['name']] = item
+    if len(items) == len(uni_by_id.values()) and len(items) == len(uni_by_name.values()):
         return True
     else:
         return False
@@ -170,7 +171,8 @@ def compare(big, small):
     error = False
     if len(big) < len(small):
         error = True
-    count_big = count_small = 0
+    count_big = 0
+    count_small = 0
     for k_1, item_1 in enumerate(big):
         if error is True:
             break
@@ -216,7 +218,8 @@ def compareItems(validator, uI, instance, schema):
     else:
         if len(items_1) != len(items_2):
             error = True
-        count_items_1 = count_items_2 = 0
+        count_items_1 = 0
+        count_items_2 = 0
         for k_1, item_1 in enumerate(items_1):
             if error is True:
                 break
