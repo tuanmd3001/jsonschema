@@ -108,66 +108,7 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
                         continue
 
                     # =============== tuanmd modified
-
-                    if isinstance(v, dict) and "$data" in v:
-                        v = resolve_pointer(self.instance_data, v['$data'])
-                    elif isinstance(v, dict) and "$p_data" in v:
-                        v = resolve_pointer(instance, v['$p_data'])
-                    elif isinstance(v, list) and k == 'enum':
-                        enums_choice = []
-                        for sub_val in v:
-                            if isinstance(sub_val, dict) and ("$data" in sub_val or '$p_data' in sub_val):
-                                if "$data" in sub_val:
-                                    enums_choice.append(resolve_pointer(self.instance_data, sub_val['$data']))
-                                elif "$p_data" in sub_val:
-                                    enums_choice.append(resolve_pointer(instance, sub_val['$p_data']))
-                            else:
-                                enums_choice.append(sub_val)
-                        v = enums_choice
-                    elif v == '$CURRENT_TIMESTAMPS':
-                        v = time.time()
-                    elif k in ['compareItems', 'compareAddress']:
-                        if isinstance(v['items_1'], dict) and "$data" in v['items_1']:
-                            v['items_1'] = resolve_pointer(self.instance_data, v['items_1']['$data'])
-                        if isinstance(v['items_2'], dict) and "$data" in v['items_2']:
-                            v['items_2'] = resolve_pointer(self.instance_data, v['items_2']['$data'])
-                    elif k == 'calculateAndCompare':
-                        # calcItems = []
-                        # for item in v['items']:
-                        #     if isinstance(item, dict) and ('$data' in item or '$p_data' in item):
-                        #         if '$data' in item:
-                        #             calcItems.append(resolve_pointer(self.instance_data, item['$data']))
-                        #         elif '$p_data' in item:
-                        #             calcItems.append(resolve_pointer(instance, item['$p_data']))
-                        #     else:
-                        #         calcItems.append(item)
-                        # v['items'] = calcItems
-                        operation = ''
-                        for item in v['operation']:
-                            if isinstance(item, dict) and ('$data' in item or '$p_data' in item):
-                                if '$data' in item:
-                                    operation += str(resolve_pointer(self.instance_data, item['$data']))
-                                elif '$p_data' in item:
-                                    operation += str(resolve_pointer(instance, item['$p_data']))
-                            else:
-                                operation += str(item)
-                        v['operation'] = operation
-                        if 'compareValue' in v and isinstance(v['compareValue'], dict) and ('$data' in v['compareValue'] or '$p_data' in v['compareValue']):
-                            if '$data' in v['compareValue']:
-                                v['compareValue'] = resolve_pointer(self.instance_data, v['compareValue']['$data'])
-                            elif '$p_data' in v['compareValue']:
-                                v['compareValue'] = resolve_pointer(instance, v['compareValue']['$p_data'])
-                    elif k == 'totalItemsPrice':
-                        v['items'] = resolve_pointer(self.instance_data, v['items']['$data'])
-                        if 'total' in v and ('$data' in v['total'] or '$p_data' in v['total']):
-                            if '$data' in v['total']:
-                                v['total'] = resolve_pointer(self.instance_data, v['total']['$data'])
-                            elif '$p_data' in v['total']:
-                                v['total'] = resolve_pointer(instance, v['total']['$p_data'])
-                    elif k == 'validatePaidAmount':
-                        v['paidAmount'] = resolve_pointer(self.instance_data, v['paidAmount']['$data'])
-                        v['payments'] = resolve_pointer(self.instance_data, v['payments']['$data'])
-
+                    k, v = self.convertData(validator, instance, k, v)
                     # =======================
 
                     errors = validator(self, v, instance, _schema) or ()
@@ -185,6 +126,55 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
             finally:
                 if scope:
                     self.resolver.pop_scope()
+
+
+        # =============== tuanmd modified
+
+        def convertData(self, validator, instance, k, v):
+
+            v = self.check_key_data(validator, instance, v)
+            if isinstance(v, list) and k == 'enum':
+                enums_choice = []
+                for sub_val in v:
+                    enums_choice.append(self.check_key_data(validator, instance, sub_val))
+                v = enums_choice
+
+            elif k in ['compareItems', 'compareAddress']:
+                if 'items_1' in v and 'items_2' in v:
+                    v['items_1'] = self.check_key_data(validator, instance, v['items_1'])
+                    v['items_2'] = self.check_key_data(validator, instance, v['items_2'])
+
+            elif k == 'calculateAndCompare':
+                operation = ''
+                for item in v['operation']:
+                    operation += str(self.check_key_data(validator, instance, item))
+                v['operation'] = operation
+                v['compareValue'] = self.check_key_data(validator, instance, v['compareValue'])
+
+            elif k == 'validatePaidAmount':
+                if 'paidAmount' in v and 'payments' in v:
+                    v['paidAmount'] = self.check_key_data(validator, instance, v['paidAmount']['$data'])
+                    v['payments'] = self.check_key_data(validator, instance, v['payments']['$data'])
+
+            return k, v
+
+        def check_key_data(self, validator, instance, value):
+            total_func = validator.func_globals['get_items_total_price']
+
+            if isinstance(value, dict):
+                if "$data" in value:
+                    value = resolve_pointer(self.instance_data, value['$data'])
+                elif "$p_data" in value:
+                    value = resolve_pointer(instance, value['$p_data'])
+                elif "$totalItemsPrice" in value:
+                    value = total_func(self, resolve_pointer(instance, value['$totalItemsPrice']))
+            elif value == '$CURRENT_TIMESTAMPS':
+                value = time.time()
+
+            return value
+
+        # =======================
+
 
         def descend(self, instance, schema, path=None, schema_path=None):
             for error in self.iter_errors(instance, schema):
@@ -297,9 +287,10 @@ Draft4Validator = create(
         u"required": _validators.required_draft4,
         u"type": _validators.type_draft4,
         u"uniqueItems": _validators.uniqueItems,
+
+        u"uniqueLoItems": _validators.uniqueLoItems,
         u"compareItems": _validators.compareItems,
         u"compareAddress": _validators.compareAddress,
-        u"totalPrice": _validators.totalPrice,
         u"validatePaidAmount": _validators.validatePaidAmount,
         u"calculateAndCompare": _validators.calculateAndCompare,
     },

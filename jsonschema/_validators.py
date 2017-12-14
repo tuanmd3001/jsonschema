@@ -150,6 +150,22 @@ def uniqueItems(validator, uI, instance, schema):
 
 # ------------------------------------
 
+
+def uniqueLoItems(validator, uI, instance, schema):
+    if (uI and validator.is_type(instance, "array") and not is_unique_item(instance)):
+        yield ValidationError("Duplicate items")
+
+def is_unique_item(items):
+    uni_by_id = uni_by_name = {}
+    for item in items:
+        if 'sku' in item and 'name' in item:
+            uni_by_id[item['sku']] = item
+            uni_by_id[item['name']] = item
+    if len(items) != len(uni_by_id.values()) or len(items) != len(uni_by_name.values()):
+        return True
+    else:
+        return False
+
 def compare(big, small):
     error = False
     if len(big) < len(small):
@@ -172,16 +188,10 @@ def compare(big, small):
         error = True
     return error
 
-def validate_item_field(items):
-    required = [
-              "sku",
-              "price",
-              "quantity",
-              "name"
-            ]
+def validate_item_field(items, fields):
     errors = []
     for item in items:
-        for k in required:
+        for k in fields:
             if k not in item:
                 errors.append('%s is a required property' % k)
     return errors, items
@@ -189,9 +199,8 @@ def validate_item_field(items):
 
 def compareItems(validator, uI, instance, schema):
     error = False
-
-    errs_1, items_1 = validate_item_field(list(uI['items_1']))
-    errs_2, items_2 = validate_item_field(list(uI['items_2']))
+    errs_1, items_1 = validate_item_field(list(uI['items_1']), uI['fields'])
+    errs_2, items_2 = validate_item_field(list(uI['items_2']), uI['fields'])
     if errs_1:
         yield ValidationError(';'.join(errs_1))
         return
@@ -229,19 +238,17 @@ def compareItems(validator, uI, instance, schema):
 def compareAddress(validator, uI, instance, schema):
     items_1 = dict(uI['items_1'])
     items_2 = dict(uI['items_2'])
+    for f in uI['fields']:
+        if items_1[f] != items_2[f]:
+            yield ValidationError("Address compare failed")
+            break
 
-    if items_1['id'] != items_2['id'] or items_1['type'] != items_2['type'] or items_1['name'] != items_2['name'] or items_1['phone'] != items_2['phone'] or items_1['fullAddress'] != items_2['fullAddress'] or items_1['addressCode'] != items_2['addressCode']:
-        yield ValidationError("Address compare failed")
-
-def totalPrice(validator, uI, instance, schema):
-    items = uI['items']
-    total = uI['total']
+def get_items_total_price(validator, items):
     items_total = 0
     for item in items:
-        if validator.is_type(item['price'], "number") and validator.is_type(item['quantity'], "number"):
-            total += item['price']*item['quantity']
-    if total < items_total:
-        yield ValidationError(uI['err_msg'].encode('ascii','ignore') if 'err_msg' in uI else 'Compare total price failed')
+        if 'price' in item and 'quantity' in item and validator.is_type(item['price'], "number") and validator.is_type(item['quantity'], "number"):
+            items_total += item['price'] * item['quantity']
+    return items_total
 
 
 def validatePaidAmount(validator, uI, instance, schema):
@@ -255,7 +262,7 @@ def validatePaidAmount(validator, uI, instance, schema):
                 if 'transactionData' in payment and 'amount' in payment['transactionData'] and check_int_or_float(payment['transactionData']['amount']):
                     transaction_amount += float(payment['transactionData']['amount'])
             if float(paidAmount) != transaction_amount:
-                yield ValidationError(uI['err_msg'].encode('ascii','ignore') if 'err_msg' in uI else 'Validate PaidAmount failed')
+                yield ValidationError(uI['err_msg'] if 'err_msg' in uI else 'Validate PaidAmount failed')
 
 def calculateAndCompare(validator, uI, instance, schema):
     if 'operation' in uI and uI['operation']:
@@ -264,13 +271,21 @@ def calculateAndCompare(validator, uI, instance, schema):
             compareValue = uI['compareValue']
         else:
             compareValue = instance
-        if check_int_or_float(compareValue):
+        try:
+            calcResult = eval(uI['operation'])
+        except:
+            yield ValidationError('calculateAndCompare - operation error')
+            return
+
+        if check_int_or_float(compareValue) and check_int_or_float(calcResult):
             try:
-                calcResult = eval(uI['operation'])
+
                 if float(compareValue) != float(calcResult):
-                    yield ValidationError(uI['err_msg'].encode('ascii','ignore') if 'err_msg' in uI else 'calculateAndCompare failed')
+                    yield ValidationError(uI['err_msg'] if 'err_msg' in uI else 'calculateAndCompare failed')
             except:
-                pass
+                yield ValidationError('calculateAndCompare - error in compare')
+        else:
+            yield ValidationError('calculateAndCompare - compareValue or calcResult is not number')
 
 def check_int_or_float(number):
     if isinstance(number, int) or isinstance(number, float):
@@ -279,6 +294,8 @@ def check_int_or_float(number):
         try:
             number = float(number)
         except ValueError:
+            return False
+        except TypeError:
             return False
     return False
 # ----------------------------------------
@@ -465,8 +482,15 @@ def maxProperties_draft4(validator, mP, instance, schema):
 
 def allOf_draft4(validator, allOf, instance, schema):
     for index, subschema in enumerate(allOf):
+        err_list = []
         for error in validator.descend(instance, subschema, schema_path=index):
-            yield error
+            err_list.append(error)
+        if err_list:
+            if "err_msg" in subschema:
+                yield ValidationError(subschema['err_msg'])
+            else:
+                for err in err_list:
+                    yield err
 
 
 def oneOf_draft4(validator, oneOf, instance, schema):
@@ -478,7 +502,7 @@ def oneOf_draft4(validator, oneOf, instance, schema):
             first_valid = subschema
             break
         for err in errs:
-            all_errors.append("%s: %s" % (".".join(err.path), err.message))
+            all_errors.append(subschema['err_msg'] if 'err_msg' in subschema else "%s: %s" % (".".join(err.path), err.message))
     else:
         yield ValidationError(
             schema['err_msg'] if 'err_msg' in schema else 'oneOf clause invalid: ' + '; '.join(all_errors)
@@ -509,4 +533,4 @@ def anyOf_draft4(validator, anyOf, instance, schema):
 
 def not_draft4(validator, not_schema, instance, schema):
     if validator.is_valid(instance, not_schema):
-        yield ValidationError(not_schema['err_msg'].encode('ascii','ignore') if 'err_msg' in not_schema else "%r is not allowed for %r" % (not_schema, instance))
+        yield ValidationError(not_schema['err_msg'] if 'err_msg' in not_schema else "%r is not allowed for %r" % (not_schema, instance))
