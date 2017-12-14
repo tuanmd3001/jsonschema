@@ -98,7 +98,12 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
             try:
                 ref = _schema.get(u"$ref")
                 if ref is not None:
-                    validators = [(u"$ref", ref)]
+                    validators = []
+                    for schema_key in _schema:
+                        if schema_key == "$ref":
+                            validators.append((u"$ref", ref))
+                        else:
+                            validators.append((schema_key, _schema[schema_key]))
                 else:
                     validators = iteritems(_schema)
 
@@ -159,18 +164,16 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
             return k, v
 
         def check_key_data(self, validator, instance, value):
-            total_func = validator.func_globals['get_items_total_price']
-
             if isinstance(value, dict):
                 if "$data" in value:
                     value = resolve_pointer(self.instance_data, value['$data'])
                 elif "$p_data" in value:
                     value = resolve_pointer(instance, value['$p_data'])
                 elif "$totalItemsPrice" in value:
-                    value = total_func(self, resolve_pointer(instance, value['$totalItemsPrice']))
+                    total_func = validator.func_globals['get_items_total_price']
+                    value = total_func(self, resolve_pointer(self.instance_data, value['$totalItemsPrice']))
             elif value == '$CURRENT_TIMESTAMPS':
                 value = time.time()
-
             return value
 
         # =======================

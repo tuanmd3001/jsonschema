@@ -178,15 +178,14 @@ def compare(big, small):
             break
         count_big += item_1["quantity"]
         for k_2, item_2 in enumerate(small):
-            if item_1["name"].strip() == item_2['name'].strip() and item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
-                small.pop(k_2)
-                count_small += item_2["quantity"]
+            if item_1["name"] == item_2['name'] and item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
                 if item_1["quantity"] < item_2["quantity"]:
                     error = True
-                    break
-    if count_big <= count_small:
-        error = True
-    if len(small) > 0:
+                else:
+                    count_small += item_2["quantity"]
+                    small.pop(k_2)
+                break
+    if count_big <= count_small or len(small) > 0:
         error = True
     return error
 
@@ -225,15 +224,14 @@ def compareItems(validator, uI, instance, schema):
                 break
             count_items_1 += item_1["quantity"]
             for k_2, item_2 in enumerate(items_2):
-                if item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
-                    items_2.pop(k_2)
-                    count_items_2 += item_2["quantity"]
+                if item_1["name"] == item_2['name'] and item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
                     if item_1["quantity"] != item_2["quantity"]:
                         error = True
+                    else:
+                        count_items_2 += item_2["quantity"]
+                        items_2.pop(k_2)
                     break
-        if count_items_1 != count_items_2:
-            error = True
-        if len(items_2) > 0:
+        if count_items_1 != count_items_2 or len(items_2) > 0:
             error = True
     if error is True:
         yield ValidationError("Items compare failed")
