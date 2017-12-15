@@ -96,17 +96,17 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
             if scope:
                 self.resolver.push_scope(scope)
             try:
-                ref = _schema.get(u"$ref")
-                if ref is not None:
-                    validators = []
-                    for schema_key in _schema:
-                        if schema_key == "$ref":
-                            validators.append((u"$ref", ref))
-                        else:
-                            validators.append((schema_key, _schema[schema_key]))
-                else:
-                    validators = iteritems(_schema)
-
+                # ref = _schema.get(u"$ref")
+                # if ref is not None:
+                #     validators = []
+                #     for schema_key in _schema:
+                #         if schema_key == "$ref":
+                #             validators.append((u"$ref", ref))
+                #         else:
+                #             validators.append((schema_key, _schema[schema_key]))
+                # else:
+                #     validators = iteritems(_schema)
+                validators = iteritems(_schema)
                 for k, v in validators:
                     validator = self.VALIDATORS.get(k)
                     if validator is None:
@@ -150,11 +150,13 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
                     v['items_2'] = self.check_key_data(validator, instance, v['items_2'])
 
             elif k == 'calculateAndCompare':
-                operation = ''
-                for item in v['operation']:
-                    operation += str(self.check_key_data(validator, instance, item))
-                v['operation'] = operation
-                v['compareValue'] = self.check_key_data(validator, instance, v['compareValue'])
+                if 'operation' in v:
+                    operation = ''
+                    for item in v['operation']:
+                        operation += str(self.check_key_data(validator, instance, item))
+                    v['operation'] = operation
+                if 'compareValue' in v:
+                    v['compareValue'] = self.check_key_data(validator, instance, v['compareValue'])
 
             elif k == 'validatePaidAmount':
                 if 'paidAmount' in v and 'payments' in v:
@@ -164,16 +166,19 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
             return k, v
 
         def check_key_data(self, validator, instance, value):
-            if isinstance(value, dict):
-                if "$data" in value:
-                    value = resolve_pointer(self.instance_data, value['$data'])
-                elif "$p_data" in value:
-                    value = resolve_pointer(instance, value['$p_data'])
-                elif "$totalItemsPrice" in value:
-                    total_func = validator.func_globals['get_items_total_price']
-                    value = total_func(self, resolve_pointer(self.instance_data, value['$totalItemsPrice']))
-            elif value == '$CURRENT_TIMESTAMPS':
-                value = time.time()
+            try:
+                if isinstance(value, dict):
+                    if "$data" in value:
+                        value = resolve_pointer(self.instance_data, value['$data'])
+                    elif "$p_data" in value:
+                        value = resolve_pointer(instance, value['$p_data'])
+                    elif "$totalItemsPrice" in value:
+                        total_func = validator.func_globals['get_items_total_price']
+                        value = total_func(self, resolve_pointer(self.instance_data, value['$totalItemsPrice']))
+                elif value == '$CURRENT_TIMESTAMPS':
+                    value = time.time()
+            except:
+                pass
             return value
 
         # =======================
