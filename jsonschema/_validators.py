@@ -200,49 +200,90 @@ def validate_item_field(items, fields):
 
 def compareItems(validator, uI, instance, schema):
     error = False
-    errs_1, items_1 = validate_item_field(list(uI['items_1']), uI['fields'])
-    errs_2, items_2 = validate_item_field(list(uI['items_2']), uI['fields'])
-    if errs_1:
-        yield ValidationError(';'.join(errs_1))
-        return
-    if errs_2:
-        yield ValidationError(';'.join(errs_2))
-        return
+    if 'fields' in uI:
+        errs_1, items_1 = validate_item_field(list(uI['items_1']), uI['fields'])
+        errs_2, items_2 = validate_item_field(list(uI['items_2']), uI['fields'])
+        if errs_1:
+            yield ValidationError(';'.join(errs_1))
+            return
+        if errs_2:
+            yield ValidationError(';'.join(errs_2))
+            return
+    if 'operator' in uI:
+        if uI['operator'] == '>':
+            error = compare(items_1, items_2)
 
-    if uI['operator'] == '>':
-        error = compare(items_1, items_2)
-
-    elif uI['operator'] == '<':
-        error = compare(items_2, items_1)
-    else:
-        if len(items_1) != len(items_2):
-            error = True
-        count_items_1 = 0
-        count_items_2 = 0
-        for k_1, item_1 in enumerate(items_1):
-            if error is True:
-                break
-            count_items_1 += item_1["quantity"]
-            for k_2, item_2 in enumerate(items_2):
-                if item_1["name"] == item_2['name'] and item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
-                    if item_1["quantity"] != item_2["quantity"]:
-                        error = True
-                    else:
-                        count_items_2 += item_2["quantity"]
-                        items_2.pop(k_2)
+        elif uI['operator'] == '<':
+            error = compare(items_2, items_1)
+        elif uI['operator'] == '=':
+            if len(items_1) != len(items_2):
+                error = True
+            count_items_1 = 0
+            count_items_2 = 0
+            for k_1, item_1 in enumerate(items_1):
+                if error is True:
                     break
-        if count_items_1 != count_items_2 or len(items_2) > 0:
-            error = True
+                count_items_1 += item_1["quantity"]
+                for k_2, item_2 in enumerate(items_2):
+                    if item_1["name"] == item_2['name'] and item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
+                        if item_1["quantity"] != item_2["quantity"]:
+                            error = True
+                        else:
+                            count_items_2 += item_2["quantity"]
+                            items_2.pop(k_2)
+                        break
+            if count_items_1 != count_items_2 or len(items_2) > 0:
+                error = True
     if error is True:
         yield ValidationError("Items compare failed")
 
 def compareAddress(validator, uI, instance, schema):
     items_1 = dict(uI['items_1'])
     items_2 = dict(uI['items_2'])
-    for f in uI['fields']:
-        if items_1[f] != items_2[f]:
+    fields = ['id', 'type', 'name']
+    for f in fields:
+        if f in items_1:
+            val_1 = items_1[f]
+        else:
+            val_1 = None
+        if f in items_2:
+            val_2 = items_2[f]
+        else:
+            val_2 = None
+        if val_1 != val_2:
             yield ValidationError("Address compare failed")
             break
+
+
+def addressDiff(validator, uI, instance, schema):
+    items_1 = dict(uI['items_1'])
+    items_2 = dict(uI['items_2'])
+    required_key = ("id", "type", "name")
+    if 'compareType' in uI:
+        if all(k in items_1 for k in required_key) and all(k in items_2 for k in required_key):
+            if items_1['id'] == items_2['id']:
+                yield ValidationError('Adress not different')
+            else:
+                if items_1['type'] == items_2['type']:
+                    if items_1['type'] == 'hub':
+                        if items_1['name'] == items_2['name']:
+                            yield ValidationError('Adress not different')
+                        else:
+                            pass
+                    elif items_1['type'] == 'ktv':
+                        pass
+                    elif items_1['type'] == 'customer':
+                        if uI['compareType'] == 'in':
+                            yield ValidationError('Adress not different')
+                        elif uI['compareType'] == 'out':
+                            pass
+                else:
+                    pass
+        else:
+            yield ValidationError("Adress invalid. '%s' are required" % ', '.join(required_key))
+    else:
+        yield ValidationError("addressDiff schema invalid.")
+
 
 def get_items_total_price(validator, items):
     items_total = 0

@@ -299,6 +299,7 @@ Draft4Validator = create(
         u"uniqueLoItems": _validators.uniqueLoItems,
         u"compareItems": _validators.compareItems,
         u"compareAddress": _validators.compareAddress,
+        u"addressDiff": _validators.addressDiff,
         u"validatePaidAmount": _validators.validatePaidAmount,
         u"calculateAndCompare": _validators.calculateAndCompare,
     },
