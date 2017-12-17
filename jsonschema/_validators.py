@@ -174,14 +174,16 @@ def compare(big, small):
     for k_1, item_1 in enumerate(big):
         if error is True:
             break
-        count_big += item_1["quantity"]
+        if isinstance(item_1["quantity"], int):
+            count_big += item_1["quantity"]
         for k_2, item_2 in enumerate(small):
             if item_1["name"] == item_2['name'] and item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
                 if item_1["quantity"] < item_2["quantity"]:
                     error = True
                 else:
-                    count_small += item_2["quantity"]
-                    small.pop(k_2)
+                    if isinstance(item_2["quantity"], int):
+                        count_small += item_2["quantity"]
+                        small.pop(k_2)
                 break
     if count_big <= count_small or len(small) > 0:
         error = True
@@ -189,10 +191,16 @@ def compare(big, small):
 
 def validate_item_field(items, fields):
     errors = []
-    for item in items:
-        for k in fields:
-            if k not in item:
-                errors.append('%s is a required property' % k)
+    if len(items):
+        for item in items:
+            if isinstance(item, dict):
+                for k in fields:
+                    if k not in item:
+                        errors.append('%s is a required property' % k)
+            else:
+                errors.append('Items invalid')
+    else:
+        errors.append('Items cannot empty')
     return errors, items
 
 
