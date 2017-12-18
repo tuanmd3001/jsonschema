@@ -164,7 +164,7 @@ def is_unique_item(items, fields):
     for f in fields:
         uni_by_key = {}
         for item in items:
-            if item is not None and f in item and item[f] != '':
+            if item is not None and f in item and item[f] is not None and item[f] != '':
                     uni_by_key[item[f]] = item
             else:
                 return 'Invalid Items'

@@ -144,7 +144,7 @@ def create(meta_schema, validators=(), version=None, default_types=None):  # noq
                     enums_choice.append(self.check_key_data(validator, instance, sub_val))
                 v = enums_choice
 
-            elif k in ['compareItems', 'compareAddress']:
+            elif k in ['compareItems', 'compareAddress', 'addressDiff']:
                 if 'items_1' in v and 'items_2' in v:
                     v['items_1'] = self.check_key_data(validator, instance, v['items_1'])
                     v['items_2'] = self.check_key_data(validator, instance, v['items_2'])
