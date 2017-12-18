@@ -152,16 +152,16 @@ def uniqueItems(validator, uI, instance, schema):
 
 
 def uniqueLoItems(validator, uI, instance, schema):
-    if (uI and validator.is_type(instance, "array") and 'field' in uI and not is_unique_item(instance, uI['fields'])):
+    if (uI and validator.is_type(instance, "array") and not is_unique_item(instance, uI)):
         yield ValidationError("Duplicate items")
 
 def is_unique_item(items, fields):
-    for item in items:
-        for f in fields:
-            uni_by_key = {}
+    for f in fields:
+        uni_by_key = {}
+        for item in items:
             if f in item and item[f] != '':
                 uni_by_key[item[f]] = item
-        if len(items) != len(uni_by_id.values()):
+        if len(items) != len(uni_by_key.values()):
             return False
     return True
 
