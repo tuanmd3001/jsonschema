@@ -353,6 +353,7 @@ def check_int_or_float(number):
         except TypeError:
             return False
     return False
+
 # ----------------------------------------
 
 
@@ -405,8 +406,12 @@ def dependencies(validator, dependencies, instance, schema):
 
 
 def enum(validator, enums, instance, schema):
-    if instance not in enums:
+    if validator.is_type(instance, "string"):
+        instance = instance.lower()
+    if instance not in [s.lower() if validator.is_type(s, "string") else s for s in enums]:
         yield ValidationError("%r is not one of %r" % (instance, enums))
+    # if instance not in enums:
+    #     yield ValidationError("%r is not one of %r" % (instance, enums))
 
 
 def ref(validator, ref, instance, schema):
