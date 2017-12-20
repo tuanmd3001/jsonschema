@@ -305,8 +305,8 @@ def addressDiff(validator, uI, instance, schema):
 def get_items_total_price(validator, items):
     items_total = 0
     for item in items:
-        if 'price' in item and 'quantity' in item and validator.is_type(item['price'], "number") and validator.is_type(item['quantity'], "number"):
-            items_total += item['price'] * item['quantity']
+        if 'price' in item and 'quantity' in item and check_int_or_float(item['price']) and check_int_or_float(item['quantity']):
+            items_total += eval('%s * %s' % (str(item['price']), str(item['quantity'])))
     return items_total
 
 
@@ -356,7 +356,7 @@ def check_int_or_float(number):
             return False
         except TypeError:
             return False
-    return False
+    return True
 
 # ----------------------------------------
 
