@@ -251,6 +251,8 @@ def compareItems(validator, uI, instance, schema):
         yield ValidationError("Items compare failed")
 
 def compareAddress(validator, uI, instance, schema):
+    if uI['items_1'] is None or uI['items_2'] is None:
+        return
     items_1 = dict(uI['items_1'])
     items_2 = dict(uI['items_2'])
     fields = ['id', 'type', 'name']
@@ -269,6 +271,8 @@ def compareAddress(validator, uI, instance, schema):
 
 
 def addressDiff(validator, uI, instance, schema):
+    if uI['items_1'] is None or uI['items_2'] is None:
+        return
     items_1 = dict(uI['items_1'])
     items_2 = dict(uI['items_2'])
     required_key = ("id", "type", "name")
