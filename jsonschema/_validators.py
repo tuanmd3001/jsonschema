@@ -566,7 +566,7 @@ def oneOf_draft4(validator, oneOf, instance, schema):
             first_valid = subschema
             break
         for err in errs:
-            all_errors.append(subschema['err_msg'] if 'err_msg' in subschema else "%s: %s" % (".".join(err.path), err.message))
+            all_errors.append(subschema['err_msg'] if 'err_msg' in subschema else "%s: %s" % ('.'.join([str(p) for p in err.path]), err.message))
     else:
         yield ValidationError(
             schema['err_msg'] if 'err_msg' in schema else 'oneOf clause invalid: ' + '; '.join(all_errors)
@@ -588,7 +588,7 @@ def anyOf_draft4(validator, anyOf, instance, schema):
         if not errs:
             break
         for err in errs:
-            all_errors.append("%s: %s" % (".".join(err.path), err.message))
+            all_errors.append("%s: %s" % ('.'.join([str(p) for p in err.path]), err.message))
     else:
         yield ValidationError(
             schema['err_msg'] if 'err_msg' in schema else 'anyOf clause invalid: ' + '; '.join(all_errors)
