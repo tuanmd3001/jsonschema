@@ -176,15 +176,15 @@ def group_items(items):
     for _item in items:
         if 'sku' in _item and 'price' in _item and 'quantity' in _item:
             key = '%s-%s' % (str(_item['sku']).strip(), _item['price'])
-            if key in list_item:
-                current_quantity = list_item[key]['quantity']
-                list_item[key] = {
+            if key in list_items:
+                current_quantity = list_items[key]['quantity']
+                list_items[key] = {
                     "sku": _item['sku'],
                     "price": _item['price'],
                     "quantity": current_quantity + _item['quantity']
                 }
             else:
-                list_item[key] = {
+                list_items[key] = {
                     "sku": _item['sku'],
                     "price": _item['price'],
                     "quantity": _item['quantity']
