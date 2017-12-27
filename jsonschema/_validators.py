@@ -171,19 +171,41 @@ def is_unique_item(items):
         return 'Duplicate items'
     return True
 
+def group_items(items):
+    list_items = {}
+    for _item in items:
+        if 'sku' in _item and 'price' in _item and 'quantity' in _item:
+            key = '%s-%s' % (str(_item['sku']).strip(), _item['price'])
+            if key in list_item:
+                current_quantity = list_item[key]['quantity']
+                list_item[key] = {
+                    "sku": _item['sku'],
+                    "price": _item['price'],
+                    "quantity": current_quantity + _item['quantity']
+                }
+            else:
+                list_item[key] = {
+                    "sku": _item['sku'],
+                    "price": _item['price'],
+                    "quantity": _item['quantity']
+                }
+    return list_items.values()
+
 def compare(big, small):
     error = False
     if len(big) < len(small):
         error = True
     count_big = 0
     count_small = 0
+    big = group_items(big)
+    small = group_items(small)
     for k_1, item_1 in enumerate(big):
         if error is True:
             break
         if isinstance(item_1["quantity"], int):
             count_big += item_1["quantity"]
         for k_2, item_2 in enumerate(small):
-            if item_1["name"] == item_2['name'] and item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
+            if item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
                 if item_1["quantity"] < item_2["quantity"]:
                     error = True
                 else:
@@ -237,7 +259,7 @@ def compareItems(validator, uI, instance, schema):
                     break
                 count_items_1 += item_1["quantity"]
                 for k_2, item_2 in enumerate(items_2):
-                    if item_1["name"] == item_2['name'] and item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
+                    if item_1["sku"] == item_2['sku'] and item_1["price"] == item_2['price']:
                         if item_1["quantity"] != item_2["quantity"]:
                             error = True
                         else:
